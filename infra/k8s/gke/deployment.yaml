@@ -1,0 +1,116 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cranky-aryan-c2fa6186c6-bst-token
+  namespace: apps-release
+  labels:
+    app: cranky-aryan-c2fa6186c6
+    managed-by: backstract
+  annotations:
+    backstract.io/token-scope: "storage.*,cache.*"
+type: Opaque
+stringData:
+  token: "PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cranky-aryan-c2fa6186c6-depl
+  namespace: apps-release
+  labels:
+    app: cranky-aryan-c2fa6186c6
+    release: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cranky-aryan-c2fa6186c6
+      release: prometheus
+  template:
+    metadata:
+      labels:
+        app: cranky-aryan-c2fa6186c6
+        release: prometheus
+    spec:
+      runtimeClassName: gvisor
+      imagePullSecrets:
+        - name: aws-ecr-creds
+      serviceAccountName: alloy-service-account
+      volumes:
+        - name: alloy-config
+          configMap:
+            name: alloy-configmap
+            items:
+              - key: alloy.river
+                path: config.alloy
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "labels"
+                fieldRef:
+                  fieldPath: metadata.labels
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+      containers:
+        - name: cranky-aryan-c2fa6186c6
+          image: 216084506783.dkr.ecr.ap-south-1.amazonaws.com/backstract_apps:cranky-aryan-c2fa6186c6
+          imagePullPolicy: Always
+          env:
+            - name: BACKSTRACT_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cranky-aryan-c2fa6186c6-bst-token
+                  key: token
+            - name: BACKSTRACT_PLATFORM_URL
+              value: "https://api-release.beemerbenzbentley.site/sigma"
+          envFrom:
+            - configMapRef:
+                name: env-configmap-coll-aed8df1c00d543d89f4e80fbbf7c6209-deployment-06bc323c-2b04-4ea7-901a-483accb37af7
+            - secretRef:
+                name: app-secrets-coll-aed8df1c00d543d89f4e80fbbf7c6209
+            - secretRef:
+                name: app-resources-secrets-coll-aed8df1c00d543d89f4e80fbbf7c6209
+                optional: true
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8080
+              name: metrics
+          resources:
+            requests:
+              memory: "3000Mi"
+              cpu: "50m"
+            limits:
+              memory: "300Mi"
+              cpu: "1"
+        - name: alloy-sidecar
+          image: grafana/alloy:latest
+          args:
+            - "run"
+            - "/etc/alloy/config.alloy"
+            - "--server.http.listen-addr=0.0.0.0:12345"
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+              protocol: TCP
+            - name: otlp-http
+              containerPort: 4318
+              protocol: TCP
+            - name: alloy-http
+              containerPort: 12345
+              protocol: TCP
+          volumeMounts:
+            - name: alloy-config
+              mountPath: /etc/alloy
+            - name: podinfo
+              mountPath: /etc/podinfo
+              readOnly: true
+          resources:
+            requests:
+              memory: "100Mi"
+              cpu: "20m"
+            limits:
+              memory: "50Mi"
+              cpu: "100m"

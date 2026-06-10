@@ -1,0 +1,16 @@
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: cranky-aryan-c2fa6186c6-hc
+  namespace: apps-release
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 8080
+        requestPath: /docs
+  targetRef:
+    group: ""
+    kind: Service
+    name: cranky-aryan-c2fa6186c6-srv

@@ -1,0 +1,141 @@
+name: CD - Deploy to GCP GKE
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: gcp-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-gke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      # GCP CONFIG
+      GCP_PROJECT_ID: platform-test-487912
+      GKE_CLUSTER: lcnc-cluster-delhi
+      GKE_REGION: asia-south2
+      NAMESPACE: apps-release
+      GCP_WIF_PROVIDER: "projects/208126041268/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider"
+      GCP_WIF_SA: "github-deployer@platform-test-487912.iam.gserviceaccount.com"
+
+      # AWS CONFIG (pull images from ECR)
+      AWS_REGION: ap-south-1
+      ECR_REGISTRY: 216084506783.dkr.ecr.ap-south-1.amazonaws.com
+      INFRA_DIR: infra/k8s
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::216084506783:role/GitHubActionsDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_WIF_SA }}
+
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_REGION }}
+
+      - name: Create Kubernetes secret dynamically
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.K8S_ENV_FILE }}" | base64 -d > .env
+          kubectl create secret generic app-secrets-coll-aed8df1c00d543d89f4e80fbbf7c6209 \
+            --namespace $NAMESPACE \
+            --from-env-file=.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to GKE
+        uses: ./.github/actions/log-streamer
+        env:
+          BST_TOKEN: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}
+        with:
+          step_name: "GKE Deployment"
+          command: |
+            set -euo pipefail
+
+            if [ -z "${BST_TOKEN}" ]; then
+              echo "ERROR: BACKSTRACT_AUTH_TOKEN is empty"
+              exit 1
+            fi
+
+            echo "Deploying to namespace: $NAMESPACE"
+
+            # Ensure namespace exists
+            kubectl get ns $NAMESPACE || kubectl create ns $NAMESPACE
+
+            # ECR pull secret for GKE
+            ECR_PASS=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+            kubectl create secret docker-registry aws-ecr-creds \
+              --docker-server=${{ env.ECR_REGISTRY }} \
+              --docker-username=AWS \
+              --docker-password=$ECR_PASS \
+              --namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+            # Inject BST token into GKE deployment manifest
+            awk '{gsub(/PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME/, ENVIRON["BST_TOKEN"])}1' "$INFRA_DIR/gke/deployment.yaml" > /tmp/gke_deployment.yaml
+            if grep -q "PLACEHOLDER_BST_TOKEN_REPLACE_AT_RUNTIME" /tmp/gke_deployment.yaml; then
+              echo "ERROR: Token injection failed"
+              exit 1
+            fi
+
+            if [ -d "$INFRA_DIR/gke" ]; then
+              kubectl apply -n $NAMESPACE -f "$INFRA_DIR/gke/env-configmap.yaml"
+              kubectl apply -n $NAMESPACE -f "$INFRA_DIR/gke/alloy-rbac.yaml"
+              kubectl apply -n $NAMESPACE -f "$INFRA_DIR/gke/alloy-configmap.yaml"
+              kubectl apply -n $NAMESPACE -f "$INFRA_DIR/gke/http-route.yaml"
+              kubectl apply -n $NAMESPACE -f "$INFRA_DIR/gke/health-check.yaml"
+            fi
+
+            kubectl apply -n $NAMESPACE -f /tmp/gke_deployment.yaml
+            kubectl apply -n $NAMESPACE -f "$INFRA_DIR/gke/service.yaml"
+
+            kubectl rollout restart deployment "cranky-aryan-c2fa6186c6-depl" -n $NAMESPACE
+            kubectl rollout status deployment "cranky-aryan-c2fa6186c6-depl" -n $NAMESPACE --timeout=300s
+
+            TARGET_HOST='https://cc1fbde45ead-in-south-01.mayson.dev'
+            TARGET_RPN_PATH='us-east-1-backstractelb-3b5437-coll-aed8df1c00d543d89f4e80fbbf7c6209'
+            DOCS_URL='https://cc1fbde45ead-in-south-01.mayson.dev/us-east-1-backstractelb-3b5437-coll-aed8df1c00d543d89f4e80fbbf7c6209/docs'
+            MAX_RETRIES=30
+            SLEEP_SECONDS=10
+
+            echo "Waiting for docs endpoint: ${DOCS_URL}"
+            for attempt in $(seq 1 "${MAX_RETRIES}"); do
+              status_code=$(curl -s -o /dev/null -w "%{http_code}" "${DOCS_URL}" || true)
+              if [ "${status_code}" = "200" ]; then
+                echo "Docs endpoint is live (attempt ${attempt}/${MAX_RETRIES})"
+                break
+              fi
+              if [ "${attempt}" -eq "${MAX_RETRIES}" ]; then
+                echo "Docs endpoint did not become live after ${MAX_RETRIES} attempts"
+                exit 1
+              fi
+              echo "Attempt ${attempt}/${MAX_RETRIES} failed (status: ${status_code:-none}), retrying in ${SLEEP_SECONDS}s..."
+              sleep "${SLEEP_SECONDS}"
+            done
+
+            smoke_status=$(curl -s -o /dev/null -w "%{http_code}" "${DOCS_URL}" || true)
+            if [ "${smoke_status}" != "200" ]; then
+              echo "Smoke check failed. ${DOCS_URL} returned status ${smoke_status:-none}"
+              exit 1
+            fi
+            echo "Smoke check passed with 200 on ${DOCS_URL}"
+          endpoint: https://api-release.beemerbenzbentley.site/sigma/api/v1/logs/github
+          token: ${{ secrets.BACKSTRACT_AUTH_TOKEN }}

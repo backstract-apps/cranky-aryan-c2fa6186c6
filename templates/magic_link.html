@@ -1,0 +1,144 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>Sign in with your magic link</title>
+    <style>
+      @media only screen and (max-width: 600px) {
+        .content-padding { padding-left: 20px !important; padding-right: 20px !important; }
+        .mobile-button { width: 100% !important; box-sizing: border-box !important; display: block !important; text-align: center !important; }
+      }
+    </style>
+  </head>
+  <body
+    dir="ltr"
+    lang="en"
+    style="background-color:#050505;font-family:Arial, sans-serif;margin:0;padding:0"
+  >
+    <div
+      style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0"
+      data-skip-in-text="true"
+    >
+      Your secure magic link is ready. It expires in 15 minutes.
+    </div>
+    <table
+      align="center"
+      width="100%"
+      border="0"
+      cellpadding="0"
+      cellspacing="0"
+      role="presentation"
+      style="max-width:600px;margin:0 auto;background-color:#0a0a0a"
+    >
+      <tbody>
+        <tr>
+          <td>
+            <table
+              align="center"
+              width="100%"
+              border="0"
+              cellpadding="0"
+              cellspacing="0"
+              role="presentation"
+              class="content-padding"
+              style="padding:40px 40px 0 40px"
+            >
+              <tbody>
+                <tr>
+                  <td>
+                    <img
+                      alt="Mayson Logo"
+                      src="https://cdn.migma.ai/projects/69a94500accb23fa76cead77/logos/BTMxSP2xiUuOWqwrXVvgbx5PO5g_logo_crjmbj.png"
+                      style="display:block;outline:none;border:none;text-decoration:none"
+                      width="120"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <table
+              align="center"
+              width="100%"
+              border="0"
+              cellpadding="0"
+              cellspacing="0"
+              role="presentation"
+              class="content-padding"
+              style="padding:28px 40px 24px 40px"
+            >
+              <tbody>
+                <tr>
+                  <td>
+                    <h1
+                      style="font-size:28px;line-height:1.25;font-weight:700;color:#fafafa;margin:0 0 16px 0"
+                    >
+                      Sign in to your account
+                    </h1>
+                    <p
+                      style="font-size:16px;line-height:1.6;color:#d4d4d8;margin:0"
+                    >
+                      Use the secure link below to complete your login. This link expires in 15 minutes and can only be used once.
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <table
+              align="center"
+              width="100%"
+              border="0"
+              cellpadding="0"
+              cellspacing="0"
+              role="presentation"
+              class="content-padding"
+              style="padding:0 40px 28px 40px"
+            >
+              <tbody>
+                <tr>
+                  <td>
+                    <a
+                      class="mobile-button"
+                      href="{{ magic_link }}"
+                      target="_blank"
+                      style="background-color:#7c3aed;border-radius:8px;color:#ffffff;display:inline-block;font-size:16px;font-weight:700;line-height:1;text-decoration:none;padding:16px 28px"
+                    >
+                      Sign in securely
+                    </a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <table
+              align="center"
+              width="100%"
+              border="0"
+              cellpadding="0"
+              cellspacing="0"
+              role="presentation"
+              class="content-padding"
+              style="padding:0 40px 40px 40px"
+            >
+              <tbody>
+                <tr>
+                  <td>
+                    <p
+                      style="font-size:13px;line-height:1.6;color:#a1a1aa;margin:0"
+                    >
+                      If the button does not work, copy and paste this link into your browser:
+                    </p>
+                    <p
+                      style="font-size:13px;line-height:1.6;color:#c4b5fd;word-break:break-all;margin:10px 0 0 0"
+                    >
+                      {{ magic_link }}
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cranky-aryan-c2fa6186c6-srv
+  namespace: apps-release
+spec:
+  selector:
+    app: cranky-aryan-c2fa6186c6
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: NodePort
