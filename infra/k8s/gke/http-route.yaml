@@ -11,7 +11,7 @@ spec:
       namespace: default
       sectionName: https
   hostnames:
-    - "cc1fbde45ead-in-south-01.mayson.dev"
+    - "cc1fbde45ead-in-south-02.mayson.dev"
   rules:
     - matches:
         - path:
